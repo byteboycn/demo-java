@@ -1,0 +1,17 @@
+.DS_Store
+
+# IDE and editors
+*~
+.idea
+eclipse
+.amateras
+.settings
+.classpath
+.project
+.git
+*.iml
+
+target
+
+.log
+.log.gz
