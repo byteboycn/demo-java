@@ -1,23 +1,27 @@
 package cn.byteboy.demo.jvm.nio.server;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * @author hongshaochuan
  * @Date 2021/8/6
+ *
+ * 维护 acceptThread 和 selectorThreads
+ * acceptThread 用于接受新的连接，并且分发给 selectorThreads，每个真实的连接对应一个 ServerConn
  */
-public class SocketServer {
+public class NIOSocketServer extends SocketServer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NIOSocketServer.class);
 
     // boss group
     private AcceptThread acceptThread;
@@ -30,6 +34,14 @@ public class SocketServer {
 
     private int numSelectorThreads;
 
+    private volatile boolean stopped = true;
+
+    protected WorkerService workerService;
+
+    private int numWorkerThreads;
+
+
+    @Override
     public void configure(InetSocketAddress addr) throws IOException {
 
         int numCores = Runtime.getRuntime().availableProcessors();
@@ -43,7 +55,34 @@ public class SocketServer {
         this.ss = ServerSocketChannel.open();
         this.ss.socket().setReuseAddress(true);
         this.ss.configureBlocking(false);
-        acceptThread = new AcceptThread();
+        acceptThread = new AcceptThread(ss, selectorThreads);
+
+        numWorkerThreads = 2 * numCores;
+
+        String logMsg = "Configuration NIO connection handler with "
+                + numSelectorThreads + " selector thread(s), "
+                + numWorkerThreads + " worker threads.";
+        LOG.info(logMsg);
+        LOG.info("binding to port {}", addr);
+    }
+
+    @Override
+    public void start() {
+        stopped = false;
+        if (workerService == null) {
+            workerService = new WorkerService("NIOWorker", numWorkerThreads);
+        }
+
+        for (SelectorThread t : selectorThreads) {
+            if (t.getState() == Thread.State.NEW) {
+                t.start();
+            }
+        }
+
+        if (acceptThread.getState() == Thread.State.NEW) {
+            acceptThread.start();
+        }
+
     }
 
 
@@ -54,6 +93,10 @@ public class SocketServer {
 
         public AbstractSelectThread(String name) throws IOException {
             this.selector = Selector.open();
+        }
+
+        public void wakeupSelector() {
+            selector.wakeup();
         }
 
         protected void closeSelector() {
@@ -69,12 +112,16 @@ public class SocketServer {
 
         private final ServerSocketChannel acceptChannel;
 
-        public AcceptThread() throws IOException {
+        private final Collection<SelectorThread> selectorThreads;
+
+        private Iterator<SelectorThread> selectorIterator;
+
+        public AcceptThread(ServerSocketChannel ss, Set<SelectorThread> selectorThreads) throws IOException {
             super("AcceptThread");
-            this.acceptChannel = ServerSocketChannel.open();
-            this.acceptChannel.socket().setReuseAddress(true);
-            this.acceptChannel.configureBlocking(false);
+            this.acceptChannel = ss;
             this.acceptChannel.register(selector, SelectionKey.OP_ACCEPT);
+            this.selectorThreads = Collections.unmodifiableCollection(new ArrayList<>(selectorThreads));
+            this.selectorIterator = selectorThreads.iterator();
         }
 
         @Override
@@ -94,6 +141,7 @@ public class SocketServer {
                 /**
                  * 阻塞住当前线程，当有以下两种情况时返回
                  * 1.至少有一个channel就绪，返回当前就绪的channel数量，这里的channel指当前selector敢兴趣的channel
+                 * 2. wakeup method is invoked or the current thread is interrupted
                  */
                 int readyChannelNum = selector.select();
 
@@ -124,8 +172,18 @@ public class SocketServer {
                 accepted = true;
                 sc.configureBlocking(false);
 
+                LOG.debug("Accepted socket connection from {}", sc.socket().getRemoteSocketAddress());
+
+                if (!selectorIterator.hasNext()) {
+                    selectorIterator = selectorThreads.iterator();
+                }
+                SelectorThread selectorThread = selectorIterator.next();
+                if (!selectorThread.addAcceptedConnection(sc)) {
+                    throw new IOException("Unable to add connection to selector queue");
+                }
+
             } catch (IOException e) {
-                e.printStackTrace();
+                LOG.error("Error accepting new connection", e);
             }
 
             return accepted;
@@ -134,14 +192,26 @@ public class SocketServer {
 
     private class SelectorThread extends AbstractSelectThread {
 
+        private final Queue<SocketChannel> acceptedQueue;
+
         public SelectorThread(int id) throws IOException {
             super("SelectorThread-" + id);
+            this.acceptedQueue = new LinkedBlockingDeque<>();
+        }
+
+        public boolean addAcceptedConnection(SocketChannel accepted) {
+            if (!acceptedQueue.offer(accepted)) {
+                return false;
+            }
+            wakeupSelector();
+            return true;
         }
 
         @Override
         public void run() {
             while (true) {
                 select();
+                processAcceptedConnections();
             }
         }
 
@@ -179,7 +249,54 @@ public class SocketServer {
         }
 
         private void handleIO(SelectionKey key) {
+            IOWorkRequest workRequest = new IOWorkRequest(this, key);
+            workerService.schedule(workRequest);
 
+        }
+
+        private void processAcceptedConnections() {
+            SocketChannel accepted;
+            while ((accepted = acceptedQueue.poll()) != null) {
+                SelectionKey key = null;
+                try {
+                    key = accepted.register(selector, SelectionKey.OP_READ);
+                    ServerConn conn = createConnection(accepted, key);
+                    key.attach(conn);
+                } catch (IOException e) {
+
+                }
+
+            }
+        }
+    }
+
+
+    protected ServerConn createConnection(SocketChannel sock, SelectionKey sk) {
+        return new ServerConn(sock, sk);
+    }
+
+    private class IOWorkRequest extends WorkerService.WorkRequest {
+
+        private final SelectorThread selectorThread;
+
+        private final SelectionKey key;
+
+        private final ServerConn conn;
+
+        public IOWorkRequest(SelectorThread selectorThread, SelectionKey key) {
+            this.selectorThread = selectorThread;
+            this.key = key;
+            this.conn = (ServerConn) key.attachment();
+        }
+
+        @Override
+        public void doWork() throws Exception {
+            if (!key.isValid()) {
+                return;
+            }
+            if (key.isReadable() || key.isWritable()) {
+                conn.doIO(key);
+            }
         }
     }
 
