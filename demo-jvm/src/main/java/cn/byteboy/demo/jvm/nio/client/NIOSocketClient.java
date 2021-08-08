@@ -1,14 +1,18 @@
 package cn.byteboy.demo.jvm.nio.client;
 
+import cn.byteboy.demo.jvm.nio.base.Packet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * @author hongshaochuan
@@ -20,7 +24,15 @@ public class NIOSocketClient extends SocketClient {
 
     private final Selector selector = Selector.open();
 
+    private SocketChannel sock;
+
     private SelectionKey sockKey;
+
+    // 用于读取数据包的长度
+    protected final ByteBuffer lenBuffer = ByteBuffer.allocateDirect(4);
+
+    // 先读数据包长度，之后调用 readLength()，然后再读完整的数据包
+    protected ByteBuffer incomingBuffer = lenBuffer;
 
     public NIOSocketClient() throws IOException {
 
@@ -34,6 +46,7 @@ public class NIOSocketClient extends SocketClient {
     @Override
     void connect(InetSocketAddress addr) throws IOException {
         SocketChannel sock = createSock();
+        this.sock = sock;
         try {
             registerAndConnect(sock, addr);
         } catch (Exception e) {
@@ -56,10 +69,24 @@ public class NIOSocketClient extends SocketClient {
         boolean connected = sock.connect(addr);
     }
 
-    class SendThread extends Thread {
+    void readLength() throws IOException {
+        int len = incomingBuffer.getInt();
+        incomingBuffer = ByteBuffer.allocate(len);
+    }
 
-        public SendThread() {
-            setDaemon(true);
+    private class ReadThread extends Thread {
+
+        private final MsgWatcher watcher;
+
+        public ReadThread(MsgWatcher watcher) {
+            this.watcher = watcher;
+        }
+
+        void readPacket(ByteBuffer incomingBuffer) {
+            byte[] bytes = new byte[incomingBuffer.remaining()];
+            incomingBuffer.get(bytes);
+            Packet packet = new Packet(bytes);
+            watcher.onMsg(packet);
         }
 
         @Override
@@ -71,14 +98,63 @@ public class NIOSocketClient extends SocketClient {
                     Set<SelectionKey> selected = selector.selectedKeys();
                     for (SelectionKey k : selected) {
                         if ((k.readyOps() & (SelectionKey.OP_READ | SelectionKey.OP_WRITE)) != 0) {
-
+                            SocketChannel sock = (SocketChannel) k.channel();
+                            if (k.isReadable()) {
+                                int rc = sock.read(incomingBuffer);
+                                if (rc < 0) {
+                                    // log error
+                                }
+                                // 判断当前buffer是否写满
+                                if (!incomingBuffer.hasRemaining()) {
+                                    incomingBuffer.flip();  // 切换为读模式
+                                    if (incomingBuffer == lenBuffer) {
+                                        readLength();
+                                    } else {
+                                        readPacket(incomingBuffer);
+                                        lenBuffer.clear();
+                                        incomingBuffer = lenBuffer;
+                                    }
+                                }
+                            }
                         }
                     }
                 } catch (IOException e) {
 
                 }
+            }
+        }
+    }
+
+    private class SendThread extends Thread {
+
+        private final BlockingQueue<Packet> sendQueue;
+
+        public SendThread() {
+            this.sendQueue = new LinkedBlockingDeque<>();
+            setDaemon(true);
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    Packet packet = sendQueue.take();
+                    if (sock.isConnected()) {
+                        ByteBuffer bb = packet.getBuffer();
+                        while (bb.hasRemaining()) {
+                            sock.write(bb);
+                        }
+                    }
+
+                } catch (Exception e) {
+
+                }
 
             }
         }
+    }
+
+    private interface MsgWatcher {
+        void onMsg(Packet msg);
     }
 }
