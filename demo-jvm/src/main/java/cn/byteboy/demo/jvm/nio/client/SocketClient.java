@@ -11,7 +11,7 @@ public abstract class SocketClient {
 
 //    protected ClientConn.SendThread sendThread;
 
-    abstract void connect(InetSocketAddress addr) throws IOException;
+    public abstract void connect(InetSocketAddress addr) throws IOException;
 
-    abstract void start();
+    public abstract void start();
 }

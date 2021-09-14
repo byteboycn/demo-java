@@ -64,6 +64,7 @@ public class NIOSocketServer extends SocketServer {
                 + numWorkerThreads + " worker threads.";
         LOG.info(logMsg);
         LOG.info("binding to port {}", addr);
+        this.ss.socket().bind(addr);
     }
 
     @Override

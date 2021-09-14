@@ -7,12 +7,14 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * @author hongshaochuan
@@ -34,17 +36,19 @@ public class NIOSocketClient extends SocketClient {
     // 先读数据包长度，之后调用 readLength()，然后再读完整的数据包
     protected ByteBuffer incomingBuffer = lenBuffer;
 
+    private final LinkedBlockingQueue<Packet> outgoingQueue = new LinkedBlockingQueue<>();
+
     public NIOSocketClient() throws IOException {
 
     }
 
     @Override
-    void start() {
-
+    public void start() {
+        new ReadThread(msg -> LOG.info("received msg: {}", msg)).start();
     }
 
     @Override
-    void connect(InetSocketAddress addr) throws IOException {
+    public void connect(InetSocketAddress addr) throws IOException {
         SocketChannel sock = createSock();
         this.sock = sock;
         try {
@@ -67,6 +71,9 @@ public class NIOSocketClient extends SocketClient {
     void registerAndConnect(SocketChannel sock, InetSocketAddress addr) throws IOException {
         sockKey = sock.register(selector, SelectionKey.OP_CONNECT);
         boolean connected = sock.connect(addr);
+        if (!connected) {
+            LOG.debug("connect failed");
+        }
     }
 
     void readLength() throws IOException {
@@ -97,10 +104,15 @@ public class NIOSocketClient extends SocketClient {
 
                     Set<SelectionKey> selected = selector.selectedKeys();
                     for (SelectionKey k : selected) {
+                        SocketChannel sc = (SocketChannel) k.channel();
+                        if ((k.readyOps() & SelectionKey.OP_CONNECT) != 0) {
+                            if (sc.finishConnect()) {
+                                LOG.debug("connect success");
+                            }
+                        }
                         if ((k.readyOps() & (SelectionKey.OP_READ | SelectionKey.OP_WRITE)) != 0) {
-                            SocketChannel sock = (SocketChannel) k.channel();
                             if (k.isReadable()) {
-                                int rc = sock.read(incomingBuffer);
+                                int rc = sc.read(incomingBuffer);
                                 if (rc < 0) {
                                     // log error
                                 }
@@ -119,7 +131,7 @@ public class NIOSocketClient extends SocketClient {
                         }
                     }
                 } catch (IOException e) {
-
+                    e.printStackTrace();
                 }
             }
         }
