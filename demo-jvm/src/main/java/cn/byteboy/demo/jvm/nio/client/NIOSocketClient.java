@@ -48,6 +48,11 @@ public class NIOSocketClient extends SocketClient {
     }
 
     @Override
+    public void send(Packet packet) {
+        outgoingQueue.offer(packet);
+    }
+
+    @Override
     public void connect(InetSocketAddress addr) throws IOException {
         SocketChannel sock = createSock();
         this.sock = sock;
@@ -70,9 +75,9 @@ public class NIOSocketClient extends SocketClient {
 
     void registerAndConnect(SocketChannel sock, InetSocketAddress addr) throws IOException {
         sockKey = sock.register(selector, SelectionKey.OP_CONNECT);
-        boolean connected = sock.connect(addr);
-        if (!connected) {
-            LOG.debug("connect failed");
+        boolean immediatelyConnected = sock.connect(addr);
+        if (immediatelyConnected) {
+            // to do something
         }
     }
 
@@ -128,6 +133,10 @@ public class NIOSocketClient extends SocketClient {
                                     }
                                 }
                             }
+
+                            if (k.isWritable()) {
+
+                            }
                         }
                     }
                 } catch (IOException e) {
@@ -169,4 +178,27 @@ public class NIOSocketClient extends SocketClient {
     private interface MsgWatcher {
         void onMsg(Packet msg);
     }
+
+    private synchronized void enableWrite() {
+        int i = sockKey.interestOps();
+        if ((i & SelectionKey.OP_WRITE) == 0) {
+            sockKey.interestOps(i | SelectionKey.OP_WRITE);
+        }
+    }
+
+    private synchronized void disableWrite() {
+        int i = sockKey.interestOps();
+        if ((i & SelectionKey.OP_WRITE) != 0) {
+            sockKey.interestOps(i & (~SelectionKey.OP_WRITE));
+        }
+    }
+
+    private synchronized void enableRead() {
+        int i = sockKey.interestOps();
+        if ((i & SelectionKey.OP_READ) == 0) {
+            sockKey.interestOps(i | SelectionKey.OP_READ);
+        }
+    }
+
+
 }
