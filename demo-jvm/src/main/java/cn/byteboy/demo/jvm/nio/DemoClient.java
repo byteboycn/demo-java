@@ -1,5 +1,6 @@
 package cn.byteboy.demo.jvm.nio;
 
+import cn.byteboy.demo.jvm.nio.base.Packet;
 import cn.byteboy.demo.jvm.nio.client.NIOSocketClient;
 import cn.byteboy.demo.jvm.nio.client.SocketClient;
 
@@ -16,7 +17,11 @@ public class DemoClient {
     public static void main(String[] args) throws IOException {
         SocketClient client = new NIOSocketClient();
         client.connect(new InetSocketAddress( InetAddress.getLocalHost(), 11206));
-
         client.start();
+
+        // 发送数据包
+        client.send(new Packet("数据包1"));
+        client.send(new Packet("数据包2"));
+        client.send(new Packet("数据包3"));
     }
 }

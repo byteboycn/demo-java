@@ -18,4 +18,9 @@ public abstract class SocketClient {
     public abstract void start();
 
     public abstract void send(Packet packet);
+
+    // 建立连接后执行
+    abstract void connectionPrimed();
+
+    abstract void packetAdded();
 }
