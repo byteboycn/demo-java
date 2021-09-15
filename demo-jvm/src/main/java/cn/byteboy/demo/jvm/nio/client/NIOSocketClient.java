@@ -105,7 +105,7 @@ public class NIOSocketClient extends SocketClient {
         public void run() {
             while (true) {
                 try {
-                    selector.select();
+                    int readyChannelNum = selector.select();
 
                     Set<SelectionKey> selected = selector.selectedKeys();
                     for (SelectionKey k : selected) {
@@ -140,6 +140,7 @@ public class NIOSocketClient extends SocketClient {
                             }
                         }
                     }
+                    selected.clear();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
