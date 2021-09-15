@@ -93,6 +93,7 @@ public class NIOSocketServer extends SocketServer {
         protected final Selector selector;
 
         public AbstractSelectThread(String name) throws IOException {
+            super(name);
             this.selector = Selector.open();
         }
 
@@ -250,9 +251,13 @@ public class NIOSocketServer extends SocketServer {
         }
 
         private void handleIO(SelectionKey key) {
+            ServerConn conn = (ServerConn) key.attachment();
+            // 在处理这个连接时，停止处理这个连接的其他事件
+            key.interestOps(0);
+            conn.disableSelectable();
+
             IOWorkRequest workRequest = new IOWorkRequest(this, key);
             workerService.schedule(workRequest);
-
         }
 
         private void processAcceptedConnections() {
@@ -298,6 +303,10 @@ public class NIOSocketServer extends SocketServer {
             if (key.isReadable() || key.isWritable()) {
                 conn.doIO(key);
             }
+
+            conn.enableSelectable();
+            key.interestOps(conn.getInterestOps());
+            selectorThread.wakeupSelector();
         }
     }
 

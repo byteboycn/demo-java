@@ -123,7 +123,6 @@ public class NIOSocketClient extends SocketClient {
 
                     Set<SelectionKey> selected = selector.selectedKeys();
                     for (SelectionKey k : selected) {
-                        // todo 这里会一直收到OP_CONNECT
                         SocketChannel sc = (SocketChannel) k.channel();
                         if ((k.readyOps() & SelectionKey.OP_CONNECT) != 0) {
                             if (sc.finishConnect()) {

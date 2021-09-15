@@ -4,6 +4,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author hongshaochuan
@@ -86,6 +87,8 @@ public class WorkerService {
 
         private final ThreadGroup group;
 
+        private final AtomicInteger threadNumber = new AtomicInteger(1);
+
         public DaemonThreadFactory(String name) {
             this.namePrefix = name + "-";
             SecurityManager s = System.getSecurityManager();
@@ -94,7 +97,7 @@ public class WorkerService {
 
         @Override
         public Thread newThread(Runnable r) {
-            Thread t = new Thread(group, r, namePrefix);
+            Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement());
             t.setDaemon(true);
             if (t.getPriority() != Thread.NORM_PRIORITY) {
                 t.setPriority(Thread.NORM_PRIORITY);
