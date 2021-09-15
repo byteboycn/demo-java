@@ -36,7 +36,7 @@ public class NIOSocketClient extends SocketClient {
     // 先读数据包长度，之后调用 readLength()，然后再读完整的数据包
     protected ByteBuffer incomingBuffer = lenBuffer;
 
-    private final LinkedBlockingQueue<Packet> outgoingQueue = new LinkedBlockingQueue<>();
+    private final LinkedBlockingDeque<Packet> outgoingQueue = new LinkedBlockingDeque<>();
 
     public NIOSocketClient() throws IOException {
 
@@ -50,6 +50,19 @@ public class NIOSocketClient extends SocketClient {
     @Override
     public void send(Packet packet) {
         outgoingQueue.offer(packet);
+        packetAdded();
+    }
+
+    @Override
+    void connectionPrimed() {
+        LOG.debug("connect establishment");
+        // 建立连接后，关闭OP_CONNECT（不关闭的话会一直收到这个事件），开启OP_READ和OP_WRITE
+        sockKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+    }
+
+    @Override
+    void packetAdded() {
+        wakeup();
     }
 
     @Override
@@ -77,7 +90,7 @@ public class NIOSocketClient extends SocketClient {
         sockKey = sock.register(selector, SelectionKey.OP_CONNECT);
         boolean immediatelyConnected = sock.connect(addr);
         if (immediatelyConnected) {
-            // to do something
+            connectionPrimed();
         }
     }
 
@@ -91,6 +104,7 @@ public class NIOSocketClient extends SocketClient {
         private final MsgWatcher watcher;
 
         public ReadThread(MsgWatcher watcher) {
+            super("ReadThread");
             this.watcher = watcher;
         }
 
@@ -113,7 +127,7 @@ public class NIOSocketClient extends SocketClient {
                         SocketChannel sc = (SocketChannel) k.channel();
                         if ((k.readyOps() & SelectionKey.OP_CONNECT) != 0) {
                             if (sc.finishConnect()) {
-                                LOG.debug("connect success");
+                                connectionPrimed();
                             }
                         }
                         if ((k.readyOps() & (SelectionKey.OP_READ | SelectionKey.OP_WRITE)) != 0) {
@@ -136,7 +150,25 @@ public class NIOSocketClient extends SocketClient {
                             }
 
                             if (k.isWritable()) {
+                                Packet p = null;
+                                if (!outgoingQueue.isEmpty()) {
+                                    p = outgoingQueue.getFirst();
+                                    sock.write(p.getBuffer());
+                                    // 如果数据包已写完
+                                    if (!p.getBuffer().hasRemaining()) {
+                                        outgoingQueue.removeFirstOccurrence(p);
+                                    }
+                                }
 
+                                if (outgoingQueue.isEmpty()) {
+                                    // selector会由于一直处于可写状态，导致select()一直被唤醒，所以这里关闭OP_WRITE事件，按需开启
+                                    disableWrite();
+                                } else if (!p.getBuffer().hasRemaining()) {
+                                    // 如果数据包已写完
+                                    disableWrite();
+                                } else {
+                                    enableWrite();
+                                }
                             }
                         }
                     }
@@ -199,6 +231,10 @@ public class NIOSocketClient extends SocketClient {
         if ((i & SelectionKey.OP_READ) == 0) {
             sockKey.interestOps(i | SelectionKey.OP_READ);
         }
+    }
+
+    private synchronized void wakeup() {
+        selector.wakeup();
     }
 
 
