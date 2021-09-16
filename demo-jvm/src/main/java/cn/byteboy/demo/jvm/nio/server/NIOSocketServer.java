@@ -151,7 +151,7 @@ public class NIOSocketServer extends SocketServer {
                 Iterator<SelectionKey> selectedKeys = selector.selectedKeys().iterator();
                 while (selectedKeys.hasNext()) {
                     SelectionKey key = selectedKeys.next();
-
+                    selectedKeys.remove();
                     if (!key.isValid()) {
                         continue;
                     }
@@ -220,10 +220,13 @@ public class NIOSocketServer extends SocketServer {
         private void select() {
             try {
                 selector.select();
-
-                Iterator<SelectionKey> selectedKeys = selector.selectedKeys().iterator();
+                Set<SelectionKey> selected = selector.selectedKeys();
+                List<SelectionKey> selectedList = new ArrayList<>(selected);
+                Collections.shuffle(selectedList);  // 打乱
+                Iterator<SelectionKey> selectedKeys = selectedList.iterator();
                 while (selectedKeys.hasNext()) {
                     SelectionKey key = selectedKeys.next();
+                    selected.remove(key);
                     if (!key.isValid()) {
                         cleanup(key);
                         continue;

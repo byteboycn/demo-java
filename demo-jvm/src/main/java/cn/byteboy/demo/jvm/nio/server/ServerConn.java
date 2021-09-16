@@ -1,5 +1,6 @@
 package cn.byteboy.demo.jvm.nio.server;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -19,6 +20,10 @@ public class ServerConn {
     private final SocketChannel sock;
 
     private final SelectionKey sk;
+
+    protected final ByteBuffer lenBuffer = ByteBuffer.allocateDirect(4);
+
+    protected ByteBuffer incomingBuffer = lenBuffer;
 
     private final AtomicBoolean selectable = new AtomicBoolean(true);
 
@@ -54,7 +59,44 @@ public class ServerConn {
         return interestOps;
     }
 
+    // 重新分配incomingBuffer，使它的长度为数据包的长度
+    private void readLength() {
+        int len = incomingBuffer.getInt();
+        // 这里暂时不考虑内存是否够用
+        incomingBuffer = ByteBuffer.allocate(len);
+    }
+
+    private void readPayload() {
+
+        if (incomingBuffer.remaining() == 0) {
+            incomingBuffer.flip();
+
+        }
+    }
+
     void doIO(SelectionKey k) {
+        try {
+            if (!sock.isOpen()) {
+                return;
+            }
+            if (k.isReadable()) {
+                int rc = sock.read(incomingBuffer);
+                if (rc < 0) {
+                    // do something
+                }
+                // 如果已写满
+                if (incomingBuffer.remaining() == 0) {
+                    if (incomingBuffer == lenBuffer) {
+                        incomingBuffer.flip();  // 切换为读模式
+                        readLength();
+                    } else {
+                        readPayload();
+                    }
+                }
+            }
+        } catch (IOException e) {
+
+        }
 
     }
 }
