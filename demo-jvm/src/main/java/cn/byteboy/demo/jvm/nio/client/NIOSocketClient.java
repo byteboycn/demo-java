@@ -171,6 +171,9 @@ public class NIOSocketClient extends SocketClient {
                             }
                         }
                     }
+                    if (!outgoingQueue.isEmpty()) {
+                        enableWrite();
+                    }
                     selected.clear();
                 } catch (IOException e) {
                     e.printStackTrace();

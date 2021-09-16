@@ -20,8 +20,8 @@ public class DemoClient {
         client.start();
 
         // 发送数据包
-        client.send(new Packet("数据包1"));
-        client.send(new Packet("数据包2"));
-        client.send(new Packet("数据包3"));
+        client.send(new Packet("ab"));
+        client.send(new Packet("测试数据包"));
+        client.send(new Packet("fuck"));
     }
 }

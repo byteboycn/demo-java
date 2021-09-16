@@ -1,5 +1,9 @@
 package cn.byteboy.demo.jvm.nio.server;
 
+import cn.byteboy.demo.jvm.nio.base.Packet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
@@ -24,6 +28,8 @@ public class ServerConn {
     protected final ByteBuffer lenBuffer = ByteBuffer.allocateDirect(4);
 
     protected ByteBuffer incomingBuffer = lenBuffer;
+
+    private static final Logger LOG = LoggerFactory.getLogger(ServerConn.class);
 
     private final AtomicBoolean selectable = new AtomicBoolean(true);
 
@@ -70,6 +76,11 @@ public class ServerConn {
 
         if (incomingBuffer.remaining() == 0) {
             incomingBuffer.flip();
+            // 这里切换读模式后，remaining是可读字节数
+            byte[] bytes = new byte[incomingBuffer.remaining()];
+            incomingBuffer.get(bytes);
+            Packet packet = new Packet(bytes);
+            LOG.info("received packet, len:{}, content:{}", bytes.length, packet.getMsg());
 
         }
     }
@@ -91,11 +102,13 @@ public class ServerConn {
                         readLength();
                     } else {
                         readPayload();
+                        lenBuffer.clear();
+                        incomingBuffer = lenBuffer;
                     }
                 }
             }
         } catch (IOException e) {
-
+            e.printStackTrace();
         }
 
     }

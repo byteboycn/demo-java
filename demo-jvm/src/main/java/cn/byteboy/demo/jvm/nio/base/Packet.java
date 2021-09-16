@@ -11,6 +11,8 @@ public class Packet {
 
     private byte[] content;
 
+    private ByteBuffer bb;
+
     public Packet(String msg) {
         content = msg.getBytes(StandardCharsets.UTF_8);
     }
@@ -20,7 +22,16 @@ public class Packet {
     }
 
     public ByteBuffer getBuffer() {
-        return ByteBuffer.wrap(content);
+        if (this.bb == null)
+            createBB();
+        return this.bb;
+    }
+
+    private synchronized void createBB() {
+        this.bb = ByteBuffer.allocate(content.length + 4);
+        this.bb.putInt(content.length); // len
+        this.bb.put(content);
+        this.bb.rewind();
     }
 
     public String getMsg() {
