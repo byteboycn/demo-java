@@ -25,12 +25,12 @@
             <artifactId>log4j</artifactId>
         </dependency>
 
-<!--        <dependency>-->
-<!--            <groupId>cn.hutool</groupId>-->
-<!--            <artifactId>hutool-all</artifactId>-->
-<!--            <version>5.7.13</version>-->
-<!--            <scope>compile</scope>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-all</artifactId>
+            <version>5.7.13</version>
+            <scope>compile</scope>
+        </dependency>
 
         <dependency>
             <groupId>net.lingala.zip4j</groupId>
