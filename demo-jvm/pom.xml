@@ -32,10 +32,31 @@
             <scope>compile</scope>
         </dependency>
 
+        <!-- zip -->
         <dependency>
             <groupId>net.lingala.zip4j</groupId>
             <artifactId>zip4j</artifactId>
             <version>2.9.0</version>
+        </dependency>
+
+        <!-- sshd-sftp -->
+        <dependency>
+            <groupId>org.apache.sshd</groupId>
+            <artifactId>sshd-sftp</artifactId>
+            <version>2.7.0</version>
+        </dependency>
+
+        <!-- 配合sshd使用 -->
+        <dependency>
+            <groupId>net.i2p.crypto</groupId>
+            <artifactId>eddsa</artifactId>
+            <version>0.3.0</version>
+        </dependency>
+        <!-- hutool ftp -->
+        <dependency>
+            <groupId>commons-net</groupId>
+            <artifactId>commons-net</artifactId>
+            <version>3.6</version>
         </dependency>
     </dependencies>
 </project>
