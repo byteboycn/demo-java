@@ -25,12 +25,11 @@ public class Demo {
 
     private static final String user = "sftp";
 
-    private static final String host = "47.113.122.62";
-//    private static final String host = "191.113.122.62";
+    private static final String host = "host";
 
     private static final int port = 22;
 
-    private static final String password = "Wxsk_2020";
+    private static final String password = "password";
 
 
     public static void main(String[] args) throws IOException {
