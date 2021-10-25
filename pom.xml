@@ -12,6 +12,7 @@
         <module>demo-jvm</module>
         <module>demo-zookeeper</module>
         <module>demo-kafka</module>
+        <module>demo-spring</module>
     </modules>
 
     <properties>
