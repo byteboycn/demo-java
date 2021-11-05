@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option java_package="cn.byteboy.demo.jvm.rpc.proto";
+option java_outer_classname = "DemoRequests";
+
+message HelloRequest {
+    int64 id = 1;
+    string name = 2;
+    string content = 3;
+    repeated int64 peers = 4;
+}
+
+message HelloResponse {
+    int64 ack = 1;
+}
