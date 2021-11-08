@@ -57,17 +57,40 @@ public class FileIODemo {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
+        int perSize = 4 * 1024; // 4k
+        long counter = 1024 * 100 * 3;
+
         FileIODemo demo = new FileIODemo();
 //        demo.testDiskMaxSpeed();
-        demo.test();
+//        demo.test(perSize, counter);
+        demo.single(perSize, counter);
     }
 
-    public void test() throws IOException, InterruptedException {
+    public void single(int perSize, long counter) throws IOException {
+        long capacity = perSize * counter;
+        ByteBuffer data = ByteBuffer.wrap(new byte[perSize]);
+        RandomAccessFile file = new RandomAccessFile(new File(TEST_DIR + "data_single"), "rw");
+        FileChannel fileChannel = file.getChannel();
+
+        long start = System.currentTimeMillis();
+        for (int i = 0; i < counter; i++) {
+            fileChannel.write(data);
+            data.flip();
+        }
+        fileChannel.close();
+        file.close();
+        long end = System.currentTimeMillis();
+
+        long speed = capacity / (end - start) * 1000;
+        LOG.info("write data: {}, cost:{}ms, speed: {}/s", FileUtil.readableFileSize(capacity), end - start, FileUtil.readableFileSize(speed));
+
+    }
+
+    public void test(int perSize, long counter) throws IOException, InterruptedException {
 
 
-//        byte[] data = new byte[4 * 1024];
-        ByteBuffer data = ByteBuffer.wrap(new byte[4 * 1024]);
-        long counter = 1024 * 100 * 5;
+//        byte[] data = new byte[perSize];
+        ByteBuffer data = ByteBuffer.wrap(new byte[perSize]);
         long capacity = data.capacity() * counter; // 2g
         // 这里简化模型，粗暴的使每个线程写入相同的数据量
         if (counter % threadNum != 0) {
@@ -78,7 +101,7 @@ public class FileIODemo {
         FileChannel fileChannel = file.getChannel();
         long start = System.currentTimeMillis();
 
-        Object lock = new Object();
+        final Object lock = new Object();
         AtomicLong position = new AtomicLong(0);
         CountDownLatch latch = new CountDownLatch(threadNum);
         for (int i = 0; i < threadNum; i++) {
