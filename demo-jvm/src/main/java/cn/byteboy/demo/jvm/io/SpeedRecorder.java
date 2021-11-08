@@ -31,7 +31,8 @@ public class SpeedRecorder<T extends Number> {
     }
 
     public void start() {
-        this.startTimestamp = System.currentTimeMillis();
+        // 统计区间为左开右闭
+        this.startTimestamp = System.currentTimeMillis() - 1;
     }
 
     public void record(T data) {
@@ -43,7 +44,25 @@ public class SpeedRecorder<T extends Number> {
             return;
         }
 
-        
+        long l = startTimestamp;
+        long r = startTimestamp + period;
+
+        while (records.size() > 0) {
+            Record record = records.poll();
+
+            while (true) {
+                if (l < record.getTimestamp() && record.getTimestamp() <= r) {
+                    // handle
+
+                    break;
+                } else {
+                    l = r;
+                    r = l + period;
+                }
+            }
+
+
+        }
     }
 
 
