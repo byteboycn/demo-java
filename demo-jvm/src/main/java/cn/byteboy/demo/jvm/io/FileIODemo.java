@@ -5,16 +5,17 @@ import cn.hutool.log.Log;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.LineNumberReader;
-import java.io.RandomAccessFile;
+import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author hongshaochuan
@@ -32,27 +33,86 @@ public class FileIODemo {
     // 顺序写性能
     private static final String TEST_WRITE_COMMAND = "fio --filename=test -iodepth=16 -ioengine=libaio -direct=1 -rw=write -bs=1m -size=512m -numjobs=4 -runtime=20 -group_reporting -name=test-write";
 
-    private static final String TEST_DIR = System.getProperty("user.home") + File.separator + "FileIODemo";
+    private static final String TEST_DIR = System.getProperty("user.home") + File.separator + "FileIODemo" + File.separator;
+
+    private static final int threadNum = Runtime.getRuntime().availableProcessors();
+
+    private static final ExecutorService executor = Executors.newFixedThreadPool(threadNum, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
+
+
+
 
     public FileIODemo() {
         FileUtil.mkdir(TEST_DIR);
 
-        Runtime.getRuntime().addShutdownHook(new Thread(this::destroy));
+//        Runtime.getRuntime().addShutdownHook(new Thread(this::destroy));
     }
 
     public void destroy() {
         FileUtil.del(TEST_DIR);
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         FileIODemo demo = new FileIODemo();
-        demo.testDiskMaxSpeed();
+//        demo.testDiskMaxSpeed();
         demo.test();
     }
 
-    public void test() {
+    public void test() throws IOException, InterruptedException {
 
-//        new RandomAccessFile(new File("data"), "rw")
+
+//        byte[] data = new byte[4 * 1024];
+        ByteBuffer data = ByteBuffer.wrap(new byte[4 * 1024]);
+        long counter = 1024 * 100 * 5;
+        long capacity = data.capacity() * counter; // 2g
+        // 这里简化模型，粗暴的使每个线程写入相同的数据量
+        if (counter % threadNum != 0) {
+            LOG.error("为了保证每个线程写入相同的数据量，请调整写入量, 当前写入次数：{}，线程数：{}", counter, threadNum);
+            return;
+        }
+        RandomAccessFile file = new RandomAccessFile(new File(TEST_DIR + "data"), "rw");
+        FileChannel fileChannel = file.getChannel();
+        long start = System.currentTimeMillis();
+
+        Object lock = new Object();
+        AtomicLong position = new AtomicLong(0);
+        CountDownLatch latch = new CountDownLatch(threadNum);
+        for (int i = 0; i < threadNum; i++) {
+            executor.execute(() -> {
+                long times = counter / threadNum;
+                for (long j = 0; j < times; j++) {
+//                    synchronized (lock) {
+//                        try {
+//                            fileChannel.write(data, position.getAndAdd(data.capacity()));
+//                            data.flip();    // 使data重复读取
+//                        } catch (IOException e) {
+//                            e.printStackTrace();
+//                        }
+//                    }
+                    try {
+                        fileChannel.write(ByteBuffer.wrap(new byte[4 * 1024]), position.getAndAdd(4 * 1024));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+                latch.countDown();
+            });
+        }
+
+        latch.await();
+        long end = System.currentTimeMillis();
+
+        long speed = capacity / (end - start) * 1000;
+        LOG.info("write data: {}, cost:{}ms, speed: {}/s", FileUtil.readableFileSize(capacity), end - start, FileUtil.readableFileSize(speed));
+
+        fileChannel.close();
+        file.close();
+
     }
 
     /**
