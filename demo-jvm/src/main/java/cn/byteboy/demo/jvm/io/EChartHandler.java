@@ -17,6 +17,7 @@ public class EChartHandler {
 
     public static final String path =  System.getProperty("user.home") + File.separator + "temp" + File.separator + "code.js";
 
+    // https://echarts.apache.org/examples/zh/editor.html?c=line-simple&lang=js&version=5.2.2
     public static final String template = "option = {\n" +
             "  xAxis: {\n" +
             "    type: 'category',\n" +
