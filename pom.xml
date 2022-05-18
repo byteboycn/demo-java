@@ -13,6 +13,7 @@
         <module>demo-zookeeper</module>
         <module>demo-kafka</module>
         <module>demo-spring</module>
+        <module>demo-spring-web</module>
     </modules>
 
     <properties>

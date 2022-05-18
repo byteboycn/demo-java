@@ -3,10 +3,16 @@ package cn.byteboy.demo.spring.gateway;
 import org.reactivestreams.Publisher;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -15,11 +21,15 @@ import java.util.function.Function;
  * @date 2021/10/24
  */
 @SpringBootApplication
+//@EnableAspectJAutoProxy(exposeProxy = true)
 public class Application {
 
     public static void main(String[] args) {
-//        SpringApplication.run(Application.class, args);
-        new Application().reactorTest();
+        ConfigurableApplicationContext run = SpringApplication.run(Application.class, args);
+//        AopDemo bean = run.getBean(AopDemo.class);
+//        AopDemo bean = (AopDemo) run.getBean("aopDemo");
+//        bean.test1("test1");
+//        new Application().reactorTest();
     }
 
     public void reactorTest() {
