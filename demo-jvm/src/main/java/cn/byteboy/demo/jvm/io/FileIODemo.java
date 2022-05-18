@@ -2,20 +2,26 @@ package cn.byteboy.demo.jvm.io;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.log.Log;
+import net.smacke.jaydio.DirectRandomAccessFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 /**
  * @author hongshaochuan
@@ -57,39 +63,77 @@ public class FileIODemo {
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        int perSize = 4 * 1024; // 4k
-        long counter = 1024 * 100 * 3;
+//        int perSize = 4 * 1024; // 4k
+//        long counter = 1024 * 512 * 5; // 10g
+
+        int perSize = 32 * 1024; // 32k
+        long counter = 1024 * 63; // 10g
 
         FileIODemo demo = new FileIODemo();
 //        demo.testDiskMaxSpeed();
-//        demo.test(perSize, counter);
-        demo.single(perSize, counter);
+//        demo.test(perSize, counter, true);
+//        demo.test(perSize, counter, false);
+//        demo.test2(perSize, counter);
+//        demo.single(perSize, counter);
+//        demo.directIO(perSize, counter);
+        demo.mmap(perSize, counter);
     }
 
+    // mmap最多2g
+    public void mmap(int perSize, long counter) throws IOException {
+        long capacity = perSize * counter;
+        byte[] data = new byte[perSize];
+        SpeedRecorder<Integer> recorder = new SpeedRecorder<>(100);
+        long start = System.currentTimeMillis();
+        recorder.start();
+        RandomAccessFile file = new RandomAccessFile(new File(TEST_DIR + "data_mmap"), "rw");
+        FileChannel fileChannel = file.getChannel();
+
+        MappedByteBuffer map = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, capacity);
+        for (int i = 0; i < counter; i++) {
+            map.put(data);
+            recorder.record(perSize);
+        }
+        fileChannel.close();
+        file.close();
+        long end = System.currentTimeMillis();
+        recorder.end();
+        long speed = capacity / (end - start) * 1000;
+        LOG.info("write data: {}, cost:{}ms, speed: {}/s", FileUtil.readableFileSize(capacity), end - start, FileUtil.readableFileSize(speed));
+
+        EChartHandler.generateCode(recorder);
+    }
+
+    // 单线程顺序写入
     public void single(int perSize, long counter) throws IOException {
         long capacity = perSize * counter;
         ByteBuffer data = ByteBuffer.wrap(new byte[perSize]);
         RandomAccessFile file = new RandomAccessFile(new File(TEST_DIR + "data_single"), "rw");
         FileChannel fileChannel = file.getChannel();
 
+        SpeedRecorder<Integer> recorder = new SpeedRecorder<>(100);
         long start = System.currentTimeMillis();
+        recorder.start();
         for (int i = 0; i < counter; i++) {
             fileChannel.write(data);
             data.flip();
+            recorder.record(perSize);
         }
         fileChannel.close();
         file.close();
         long end = System.currentTimeMillis();
-
+        recorder.end();
         long speed = capacity / (end - start) * 1000;
         LOG.info("write data: {}, cost:{}ms, speed: {}/s", FileUtil.readableFileSize(capacity), end - start, FileUtil.readableFileSize(speed));
 
+        EChartHandler.generateCode(recorder);
+
     }
 
-    public void test(int perSize, long counter) throws IOException, InterruptedException {
 
 
-//        byte[] data = new byte[perSize];
+    public void test(int perSize, long counter, boolean sequence) throws IOException, InterruptedException {
+
         ByteBuffer data = ByteBuffer.wrap(new byte[perSize]);
         long capacity = data.capacity() * counter; // 2g
         // 这里简化模型，粗暴的使每个线程写入相同的数据量
@@ -100,7 +144,8 @@ public class FileIODemo {
         RandomAccessFile file = new RandomAccessFile(new File(TEST_DIR + "data"), "rw");
         FileChannel fileChannel = file.getChannel();
         long start = System.currentTimeMillis();
-
+        SpeedRecorder<Integer> recorder = new SpeedRecorder<>(10);
+        recorder.start();
         final Object lock = new Object();
         AtomicLong position = new AtomicLong(0);
         CountDownLatch latch = new CountDownLatch(threadNum);
@@ -108,18 +153,26 @@ public class FileIODemo {
             executor.execute(() -> {
                 long times = counter / threadNum;
                 for (long j = 0; j < times; j++) {
-//                    synchronized (lock) {
-//                        try {
-//                            fileChannel.write(data, position.getAndAdd(data.capacity()));
-//                            data.flip();    // 使data重复读取
-//                        } catch (IOException e) {
-//                            e.printStackTrace();
-//                        }
-//                    }
-                    try {
-                        fileChannel.write(ByteBuffer.wrap(new byte[4 * 1024]), position.getAndAdd(4 * 1024));
-                    } catch (IOException e) {
-                        e.printStackTrace();
+
+                    if (sequence) {
+                        // 多线程顺序写入
+                        synchronized (lock) {
+                            try {
+                                fileChannel.write(data, position.getAndAdd(perSize));
+                                data.flip();    // 使data重复读取
+                                recorder.record(perSize);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    } else {
+                        // 多线程非顺序写入（会形成文件空洞）
+                        try {
+                            fileChannel.write(ByteBuffer.wrap(new byte[perSize]), position.getAndAdd(perSize));
+                            recorder.record(perSize);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
 
                 }
@@ -128,6 +181,7 @@ public class FileIODemo {
         }
 
         latch.await();
+        recorder.end();
         long end = System.currentTimeMillis();
 
         long speed = capacity / (end - start) * 1000;
@@ -135,6 +189,82 @@ public class FileIODemo {
 
         fileChannel.close();
         file.close();
+
+        EChartHandler.generateCode(recorder);
+
+    }
+
+    // 多线程顺序写入，文件分片
+    public void test2(int perSize, long counter) throws IOException, InterruptedException {
+
+        ByteBuffer data = ByteBuffer.wrap(new byte[perSize]);
+        long capacity = data.capacity() * counter;
+        // 这里简化模型，粗暴的使每个线程写入相同的数据量
+        if (counter % threadNum != 0) {
+            LOG.error("为了保证每个线程写入相同的数据量，请调整写入量, 当前写入次数：{}，线程数：{}", counter, threadNum);
+            return;
+        }
+//        RandomAccessFile file = new RandomAccessFile(new File(TEST_DIR + "data"), "rw");
+//        FileChannel fileChannel = file.getChannel();
+        long start = System.currentTimeMillis();
+        SpeedRecorder<Integer> recorder = new SpeedRecorder<>(10);
+        recorder.start();
+//        final Object lock = new Object();
+//        AtomicLong position = new AtomicLong(0);
+        CountDownLatch latch = new CountDownLatch(threadNum);
+        AtomicInteger index = new AtomicInteger(0);
+        for (int i = 0; i < threadNum; i++) {
+            // 多线程顺序写入，文件分片
+            executor.execute(() -> {
+                try {
+                    FileChannel fileChannel = new RandomAccessFile(new File(TEST_DIR + "data_" + index.getAndIncrement()), "rw").getChannel();
+                    long times = counter / threadNum;
+                    for (long j = 0; j < times; j++) {
+                        fileChannel.write(ByteBuffer.wrap(new byte[perSize]));
+                        recorder.record(perSize);
+                    }
+                    fileChannel.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                latch.countDown();
+            });
+        }
+
+        latch.await();
+        recorder.end();
+        long end = System.currentTimeMillis();
+
+        long speed = capacity / (end - start) * 1000;
+        LOG.info("write data: {}, cost:{}ms, speed: {}/s", FileUtil.readableFileSize(capacity), end - start, FileUtil.readableFileSize(speed));
+
+
+        EChartHandler.generateCode(recorder);
+
+    }
+
+    public void directIO(int perSize, long counter) throws IOException {
+        int bufferSize = 50 * 1024 * 1024;  // 50m cache
+        long capacity = perSize * counter;
+        DirectRandomAccessFile directFile = new DirectRandomAccessFile(new File(TEST_DIR + "dio.data"), "rw", bufferSize);
+        long start = System.currentTimeMillis();
+        SpeedRecorder<Integer> recorder = new SpeedRecorder<>(100);
+        recorder.start();
+        byte[] data = new byte[perSize];
+        for (int i = 0; i < counter; i++) {
+            directFile.write(data);
+            recorder.record(perSize);
+        }
+        directFile.close();
+
+        recorder.end();
+        long end = System.currentTimeMillis();
+
+        long speed = capacity / (end - start) * 1000;
+        LOG.info("write data: {}, cost:{}ms, speed: {}/s", FileUtil.readableFileSize(capacity), end - start, FileUtil.readableFileSize(speed));
+
+        EChartHandler.generateCode(recorder);
 
     }
 
