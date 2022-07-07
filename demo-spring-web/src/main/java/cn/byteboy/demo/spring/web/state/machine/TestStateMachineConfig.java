@@ -6,6 +6,7 @@ import org.springframework.statemachine.StateMachineContext;
 import org.springframework.statemachine.StateMachinePersist;
 import org.springframework.statemachine.config.EnableStateMachine;
 import org.springframework.statemachine.config.StateMachineConfigurerAdapter;
+import org.springframework.statemachine.config.builders.StateMachineConfigurationConfigurer;
 import org.springframework.statemachine.config.builders.StateMachineStateConfigurer;
 import org.springframework.statemachine.config.builders.StateMachineTransitionConfigurer;
 import org.springframework.statemachine.persist.DefaultStateMachinePersister;
@@ -17,7 +18,7 @@ import java.util.EnumSet;
 /**
  * @author hongshaochuan
  */
-@Configuration
+//@Configuration
 @EnableStateMachine(name = "testStateMachine")
 public class TestStateMachineConfig extends StateMachineConfigurerAdapter<StateEnum, EventEnum> {
 
@@ -28,12 +29,19 @@ public class TestStateMachineConfig extends StateMachineConfigurerAdapter<StateE
                 .states(EnumSet.allOf(StateEnum.class));
     }
 
+//    @Override
+//    public void configure(StateMachineConfigurationConfigurer<StateEnum, EventEnum> config) throws Exception {
+//        config.withConfiguration().listener();
+//    }
+
     @Override
     public void configure(StateMachineTransitionConfigurer<StateEnum, EventEnum> transitions) throws Exception {
         transitions
                 .withExternal().source(StateEnum.INIT).target(StateEnum.S1).event(EventEnum.E1)
                 .and()
-                .withExternal().source(StateEnum.INIT).target(StateEnum.S2).event(EventEnum.E2);
+                .withExternal().source(StateEnum.INIT).target(StateEnum.S2).event(EventEnum.E2)
+                .and()
+                .withExternal().source(StateEnum.INIT).target(StateEnum.S2).event(EventEnum.E3);
     }
 
     @Bean
