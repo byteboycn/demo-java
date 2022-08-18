@@ -1,6 +1,12 @@
 package cn.byteboy.demo.jvm.test;
 
 
+import cn.hutool.core.util.ArrayUtil;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
@@ -13,44 +19,113 @@ import java.util.stream.Stream;
  */
 public class Main {
 
-    public static void main(String[] args) throws InterruptedException {
-        T t1 = new T(1);
-        T t2 = new T(2);
+    public static void main(String[] args) {
 
-        Stream.of(t2, t1)
-                .sorted(Comparator.reverseOrder())
-                .forEach(System.out::println);
+//        Base base = Factory.create();
+//
+//
+//        System.out.println(base instanceof Base);
+//        System.out.println(base instanceof A);
+//        System.out.println(base instanceof B);
+//        System.out.println(base instanceof C);
 
+        Base base = Factory.create(true).withA("a").build();
+
+        System.out.println(base instanceof Base);
+        System.out.println(base instanceof A);
+        System.out.println(base instanceof B);
+        System.out.println(base instanceof C);
+
+        System.out.println(((A) base).a());
     }
 }
 
+class Factory {
 
-class T implements Comparable<T> {
+    public static class Builder {
 
-    public int sort;
+        boolean flag;
 
-    public T(int sort) {
-        this.sort = sort;
+        A innerA;
+
+        public Builder(boolean flag) {
+            this.flag = flag;
+        }
+
+        public Builder withA(String a) {
+            innerA = new A() {
+
+                @Override
+                public boolean success() {
+                    return Builder.this.flag;
+                }
+
+                @Override
+                public String a() {
+                    return a;
+                }
+            };
+            return this;
+        }
+
+        public Base build() {
+
+            Base base = new Base() {
+                @Override
+                public boolean success() {
+
+                    return Builder.this.flag;
+                }
+            };
+
+            B innerB = new B() {
+                @Override
+                public String b() {
+                    return "b";
+                }
+
+                @Override
+                public boolean success() {
+                    return false;
+                }
+            };
+
+            Class<?>[] interfaces = ArrayUtil.addAll(innerA.getClass().getInterfaces(), innerB.getClass().getInterfaces());
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+
+            return (Base) Proxy.newProxyInstance(cl, interfaces, new InvocationHandler() {
+                @Override
+                public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                    return method.invoke(innerA, args);
+                }
+            });
+
+
+        }
     }
 
-    public int getSort() {
-        return sort;
+    public static Builder create(boolean flag) {
+        return new Builder(flag);
     }
+}
 
-    public void setSort(int sort) {
-        this.sort = sort;
-    }
+interface Base {
 
-    @Override
-    public int compareTo(T o) {
-        return o.sort - this.sort;
-//        return this.sort - o.sort;
-    }
+    boolean success();
 
-    @Override
-    public String toString() {
-        return "T{" +
-                "sort=" + sort +
-                '}';
+    default Base with(Base other) {
+        return other;
     }
+}
+
+interface A extends Base {
+    String a();
+}
+
+interface B extends Base {
+    String b();
+}
+
+interface C extends Base {
+    String c();
 }
