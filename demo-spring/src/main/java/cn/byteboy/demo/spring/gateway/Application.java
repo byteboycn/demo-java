@@ -1,5 +1,6 @@
 package cn.byteboy.demo.spring.gateway;
 
+import cn.byteboy.demo.spring.gateway.schedule.ScheduleDemo;
 import org.reactivestreams.Publisher;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -25,11 +26,7 @@ import java.util.function.Function;
 public class Application {
 
     public static void main(String[] args) {
-        ConfigurableApplicationContext run = SpringApplication.run(Application.class, args);
-//        AopDemo bean = run.getBean(AopDemo.class);
-//        AopDemo bean = (AopDemo) run.getBean("aopDemo");
-//        bean.test1("test1");
-//        new Application().reactorTest();
+        ConfigurableApplicationContext context = SpringApplication.run(Application.class, args);
     }
 
     public void reactorTest() {

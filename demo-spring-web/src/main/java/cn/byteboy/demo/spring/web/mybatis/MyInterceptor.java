@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 @Component
 @Intercepts({
         @Signature(type = Executor.class, method = "update", args = {MappedStatement.class, Object.class}),
+        @Signature(type = Executor.class, method = "commit", args = {boolean.class}),
+        @Signature(type = Executor.class, method = "rollback", args = {boolean.class}),
         @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class}),
         @Signature(type = Executor.class, method = "query", args = {MappedStatement.class, Object.class, RowBounds.class, ResultHandler.class, CacheKey.class, BoundSql.class})
 })
@@ -28,6 +30,11 @@ public class MyInterceptor implements Interceptor {
     @Override
     public Object intercept(Invocation invocation) throws Throwable {
         log.info("MyInterceptor exec, method: {}",  invocation.getMethod().getName());
+        Object target = invocation.getTarget();
+        if (target instanceof Executor) {
+            final Executor executor = (Executor) target;
+
+        }
         return invocation.proceed();
     }
 }
