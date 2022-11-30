@@ -4,6 +4,7 @@ import cn.byteboy.demo.spring.gateway.annotation.A1;
 import cn.byteboy.demo.spring.gateway.annotation.RequestCache;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Component
 public class AopDemo {
 
+    @Lazy
     @Autowired
     private AopDemo self;
 

@@ -1,5 +1,6 @@
 package cn.byteboy.demo.spring.gateway;
 
+import cn.byteboy.demo.spring.gateway.component.AService;
 import cn.byteboy.demo.spring.gateway.schedule.ScheduleDemo;
 import org.reactivestreams.Publisher;
 import org.springframework.boot.SpringApplication;
@@ -27,6 +28,8 @@ public class Application {
 
     public static void main(String[] args) {
         ConfigurableApplicationContext context = SpringApplication.run(Application.class, args);
+        AService bean = context.getBean(AService.class);
+        System.out.println(bean);
     }
 
     public void reactorTest() {

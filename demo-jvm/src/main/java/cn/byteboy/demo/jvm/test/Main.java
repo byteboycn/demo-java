@@ -2,6 +2,7 @@ package cn.byteboy.demo.jvm.test;
 
 
 import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.RandomUtil;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -26,17 +27,9 @@ import java.util.stream.Stream;
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        ThreadLocal<String> ctx = new InheritableThreadLocal<>();
-        ctx.set("value-set-in-parent");
-        System.out.println("[parent thread] set " + ctx.get());
-
-        Thread t = new Thread(() -> {
-            System.out.println("[child thread] get " + ctx.get());
-        });
-        t.start();
-        t.join();
-
-
+//        RandomUtil.randomInt(0, -1);
+        List<Object> objects = Collections.singletonList(null);
+        System.out.println(objects);
     }
 }
 

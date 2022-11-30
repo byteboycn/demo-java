@@ -11,9 +11,11 @@
     <modules>
         <module>demo-jvm</module>
         <module>demo-zookeeper</module>
+        <module>demo-rabbitmq</module>
         <module>demo-kafka</module>
         <module>demo-spring</module>
         <module>demo-spring-web</module>
+        <module>demo-socket</module>
     </modules>
 
     <properties>
