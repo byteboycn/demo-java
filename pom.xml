@@ -16,6 +16,7 @@
         <module>demo-spring</module>
         <module>demo-spring-web</module>
         <module>demo-socket</module>
+        <module>demo-shardingsphere</module>
     </modules>
 
     <properties>
@@ -28,7 +29,11 @@
 
 
     <dependencies>
-
+        <dependency>
+            <groupId>org.apache.shardingsphere</groupId>
+            <artifactId>shardingsphere-jdbc-core-spring-boot-starter</artifactId>
+            <version>5.2.1</version>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>
@@ -66,15 +71,15 @@
         </plugins>
     </build>
 
-    <repositories>
-        <repository>
-            <id>scm</id>
-            <name>scm</name>
-            <url>http://47.113.83.188:8081/repository/maven-releases/</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
+<!--    <repositories>-->
+<!--        <repository>-->
+<!--            <id>scm</id>-->
+<!--            <name>scm</name>-->
+<!--            <url>http://47.113.83.188:8081/repository/maven-releases/</url>-->
+<!--            <snapshots>-->
+<!--                <enabled>false</enabled>-->
+<!--            </snapshots>-->
+<!--        </repository>-->
+<!--    </repositories>-->
 
 </project>
