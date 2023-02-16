@@ -26,14 +26,14 @@ public class WebApplication {
     public static void main(String[] args) throws Exception {
         ConfigurableApplicationContext context = SpringApplication.run(WebApplication.class, args);
 
-        BService bean = context.getBean(BService.class);
-        if (bean instanceof Advised) {
-            System.out.println("proxy");
-            Object target = ((Advised) bean).getTargetSource().getTarget();
-            System.out.println(target);
-        }
-        System.out.println(bean);
-        bean.r3();
+//        BService bean = context.getBean(BService.class);
+//        if (bean instanceof Advised) {
+//            System.out.println("proxy");
+//            Object target = ((Advised) bean).getTargetSource().getTarget();
+//            System.out.println(target);
+//        }
+//        System.out.println(bean);
+//        bean.r3();
 
     }
 }

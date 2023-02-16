@@ -1,6 +1,6 @@
 package cn.byteboy.demo.shardingsphere.sharding;
 
-import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+//import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.apache.shardingsphere.sharding.spi.KeyGenerateAlgorithm;
 
 import java.util.Properties;
@@ -12,7 +12,8 @@ public class MyKeyGenerator implements KeyGenerateAlgorithm {
 
     @Override
     public Comparable<?> generateKey() {
-        return IdWorker.getId();
+//        return IdWorker.getId();
+        return 1L;
     }
 
     @Override
@@ -28,5 +29,20 @@ public class MyKeyGenerator implements KeyGenerateAlgorithm {
     @Override
     public String getType() {
         return "MY_KEY_GENERATOR";
+    }
+
+    public static void main(String[] args) {
+//        String shardingValue = "fucka";
+//        Long shardingValue = 827932971787878401L;
+//        long abs = Math.abs((long) shardingValue.hashCode());
+//        System.out.println(abs);
+//        System.out.println(shardingValue.hashCode());
+        int i = 0;
+        do {
+
+            System.out.println(i);
+            i++;
+        } while (i != 10);
+
     }
 }

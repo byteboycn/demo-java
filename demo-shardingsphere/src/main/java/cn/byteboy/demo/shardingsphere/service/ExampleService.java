@@ -23,7 +23,7 @@ import cn.byteboy.demo.shardingsphere.entity.OrderItem;
 import cn.byteboy.demo.shardingsphere.repository.AddressRepository;
 import cn.byteboy.demo.shardingsphere.repository.OrderItemRepository;
 import cn.byteboy.demo.shardingsphere.repository.OrderRepository;
-import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+//import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

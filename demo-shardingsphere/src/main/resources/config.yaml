@@ -16,12 +16,25 @@
 #
 
 
+#mode:
+#  type: Standalone
+#  repository:
+#    type: JDBC
+#    props:
+#      path: demo
+
 mode:
-  type: Standalone
+  type: Cluster
   repository:
-    type: JDBC
+    type: Nacos
     props:
-      path: demo
+      namespace: public
+      server-lists: localhost:8848
+      group: Local
+      retryIntervalMilliseconds: 5000
+      timeToLiveSeconds: 60
+      maxRetries: 3
+      operationTimeoutMilliseconds: 5000
 
 dataSources:
   ds_0:
@@ -46,25 +59,28 @@ dataSources:
     password: root
     maxPoolSize: 10
 
-rules:
-- !DB_DISCOVERY
-  dataSources:
-    group_0:
-      dataSourceNames:
-        - ds_0
-        - ds_1
-        - ds_2
-      discoveryHeartbeatName: mgr_heartbeat
-      discoveryTypeName: mgr_type
-    discoveryHeartbeats:
-      mgr_heartbeat:
-        props:
-          keep-alive-cron: '0/5 * * * * ?'
-    discoveryTypes:
-      mgr_type:
-        type: MySQL.MGR
-        props:
-          group-name: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+#rules:
+#  - !DB_DISCOVERY
+#    dataSources:
+#      group_0:
+#        dataSourceNames:
+#          - ds_0
+#          - ds_1
+#          - ds_2
+#        discoveryHeartbeatName: mgr_heartbeat
+#        discoveryTypeName: mgr_type
+#      discoveryHeartbeats:
+#        mgr_heartbeat:
+#          props:
+#            keep-alive-cron: '0/5 * * * * ?'
+#      discoveryTypes:
+#        mgr_type:
+#          type: MySQL.MGR
+#          props:
+#            group-name: aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
+#
+#
+#
+props:
+  sql-show: true
 
-  props:
-    sql-show: true

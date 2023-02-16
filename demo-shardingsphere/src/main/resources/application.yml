@@ -2,89 +2,9 @@ mybatis-plus:
   mapper-locations: classpath*:mappers/*Mapper.xml
 
 spring:
-#  datasource:
-#    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
-#    url: jdbc:shardingsphere:classpath:config.yaml
+  datasource:
+    driver-class-name: org.apache.shardingsphere.driver.ShardingSphereDriver
+    url: jdbc:shardingsphere:classpath:config.yaml
 
-  shardingsphere:
-    # 将运行模式配置为Standalone单机模式（Cluster：集群模式）
-    mode:
-      type: Standalone
-      repository:
-        type: JDBC
-        props:
-          path: demo
-    # 配置多数据源
-    datasource:
-      names: ds_0,ds_1,ds_2
-      ds_0:
-        type: com.zaxxer.hikari.HikariDataSource
-        driver-class-name: com.mysql.jdbc.Driver
-        url: jdbc:mysql://localhost:3306/demo_ds_0?serverTimezone=UTC&useSSL=false&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-        username: root
-        password: root
-        maxPoolSize: 10
-      ds_1:
-        type: com.zaxxer.hikari.HikariDataSource
-        driver-class-name: com.mysql.jdbc.Driver
-        url: jdbc:mysql://localhost:3306/demo_ds_1?serverTimezone=UTC&useSSL=false&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-        username: root
-        password: root
-        maxPoolSize: 10
-      ds_2:
-        type: com.zaxxer.hikari.HikariDataSource
-        driver-class-name: com.mysql.jdbc.Driver
-        url: jdbc:mysql://localhost:3306/demo_ds_2?serverTimezone=UTC&useSSL=false&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-        username: root
-        password: root
-        maxPoolSize: 10
-    props:
-      sql-show: true
-    # 配置分片规则
-    rules:
-      # 配置分片策略
-      sharding:
-        # 配置所有分片表
-        tables:
-          t_order:
-            # 声明表所在的真实数据节点
-            actual-data-nodes: ds_$->{0..2}.t_order
-            # 配置分库规则
-            database-strategy:
-              standard:
-                sharding-column: order_id
-                # 配置分片算法（需要配置一个名词，通过别名指向具体的策略）
-                sharding-algorithm-name: key-int-mod
-            # 配置分表规则
-#            table-strategy:
-#              standard:
-#                sharding-column: order_id
-#                sharding-algorithm-name: key-int-mod
-            key-generate-strategy:
-              column: order_id
-              # 具体的主键生成策略 (别名)
-              key-generator-name: global-id-snowflake
-          t_order_item:
-            actual-data-nodes: ds_$->{0..2}.t_order_item
-            database-strategy:
-              standard:
-                sharding-column: order_id
-                sharding-algorithm-name: key-int-mod
-            key-generate-strategy:
-              column: order_item_id
-              key-generator-name: global-id-snowflake
-        key-generators:
-          global-id-snowflake:
-            type: MY_KEY_GENERATOR
-        sharding-algorithms:
-          key-int-mod:
-            type: MOD
-            props:
-              # 声明分库的节点数量
-              sharding-count: 3
-        # 配置绑定表关系
-        binding-tables:
-          - t_order,t_order_item
-        # 配置广播表信息
-#        broadcast-tables:
-#          - xxx
+server:
+  port: 8081
