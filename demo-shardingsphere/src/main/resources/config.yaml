@@ -16,25 +16,25 @@
 #
 
 
-#mode:
-#  type: Standalone
-#  repository:
-#    type: JDBC
-#    props:
-#      path: demo
-
 mode:
-  type: Cluster
+  type: Standalone
   repository:
-    type: Nacos
+    type: JDBC
     props:
-      namespace: public
-      server-lists: localhost:8848
-      group: Local
-      retryIntervalMilliseconds: 5000
-      timeToLiveSeconds: 60
-      maxRetries: 3
-      operationTimeoutMilliseconds: 5000
+      path: demo
+
+#mode:
+#  type: Cluster
+#  repository:
+#    type: Nacos
+#    props:
+#      namespace: public
+#      server-lists: localhost:8848
+#      group: Local
+#      retryIntervalMilliseconds: 5000
+#      timeToLiveSeconds: 60
+#      maxRetries: 3
+#      operationTimeoutMilliseconds: 5000
 
 dataSources:
   ds_0:
@@ -81,6 +81,38 @@ dataSources:
 #
 #
 #
+
+
+rules:
+- !SHARDING
+  tables:
+    t_order:
+      actualDataNodes: ds_${0..2}.t_order
+  defaultDatabaseStrategy:
+    standard:
+      shardingColumn: user_id
+      shardingAlgorithmName: database_inline
+  defaultTableStrategy:
+    standard:
+      shardingColumn: user_id
+      shardingAlgorithmName: database_inline
+  defaultKeyGenerateStrategy:
+    column: order_id
+    keyGeneratorName: snowflake
+  shardingAlgorithms:
+    database_inline:
+      type: MOD
+      props:
+        sharding-count: 3
+    t_order_inline:
+      type: HASH_MOD
+      props:
+        sharding-count: 4
+  keyGenerators:
+    snowflake:
+      type: SNOWFLAKE
+- !SINGLE
+  defaultDataSource: icc_sop2_ds_0
 props:
   sql-show: true
 
