@@ -70,15 +70,17 @@ public class ProxyServer {
             System.out.println(msg);
             if (msg instanceof HttpRequest) {
                 HttpRequest req = (HttpRequest) msg;
-                boolean keepAlive = HttpUtil.isKeepAlive(req);
-                FullHttpResponse response = new DefaultFullHttpResponse(req.protocolVersion(), OK,
-                        Unpooled.wrappedBuffer(CONTENT));
-                response.headers()
-                        .set(CONTENT_TYPE, TEXT_PLAIN)
-                        .setInt(CONTENT_LENGTH, response.content().readableBytes());
-                response.headers().set(CONNECTION, CLOSE);
-                ChannelFuture f = ctx.write(response);
-                f.addListener(ChannelFutureListener.CLOSE);
+                // basic http response
+//                FullHttpResponse response = new DefaultFullHttpResponse(req.protocolVersion(), OK,
+//                        Unpooled.wrappedBuffer(CONTENT));
+//                response.headers()
+//                        .set(CONTENT_TYPE, TEXT_PLAIN)
+//                        .setInt(CONTENT_LENGTH, response.content().readableBytes());
+//                response.headers().set(CONNECTION, CLOSE);
+//                ChannelFuture f = ctx.write(response);
+//                f.addListener(ChannelFutureListener.CLOSE);
+
+                handleProxyData(ctx.channel(), req);
             }
         }
 
@@ -99,7 +101,7 @@ public class ProxyServer {
                             protected void initChannel(Channel ch) throws Exception {
                                 ch.pipeline()
                                         .addLast("httpCodec", new HttpClientCodec())
-                                        .addLast("proxyClientHandle", new HttpProxyClientHandler());
+                                        .addLast("proxyClientHandle", new HttpProxyClientHandler(channel));
                             }
                         });
                 ChannelFuture cf = b.connect(requestProto.getHost(), requestProto.getPort());
@@ -115,9 +117,15 @@ public class ProxyServer {
     }
 
     public static class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
+
+        private final Channel clientChannel;
+
+        public HttpProxyClientHandler(Channel clientChannel) {
+            this.clientChannel = clientChannel;
+        }
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-
+            clientChannel.writeAndFlush(msg);
         }
     }
 
