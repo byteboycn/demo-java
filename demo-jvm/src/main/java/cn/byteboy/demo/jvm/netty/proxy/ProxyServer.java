@@ -11,6 +11,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -28,7 +29,9 @@ import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
+import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
 
@@ -73,27 +76,51 @@ public class ProxyServer {
     }
 
     public static class ServerHandler extends ChannelInboundHandlerAdapter {
+
+        enum Stage { ONE, TWO, THREE }
+
+        private ProtoUtil.RequestProto requestProto;
+
+        private Stage stage = Stage.ONE;
+
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
             if (msg instanceof HttpRequest) {
                 HttpRequest req = (HttpRequest) msg;
 
-                if (HttpMethod.CONNECT.name().equals(req.method().name())) {
-                    HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, SUCCESS);
-                    ctx.writeAndFlush(response);
-                    ctx.channel().pipeline().remove("httpCodec");
-                    ReferenceCountUtil.release(msg);
-                    return;
+                if (stage == Stage.ONE) {
+                    stage = Stage.TWO;
+                    // 非首次链接时回导致解析的信息不准确
+                    requestProto = ProtoUtil.getRequestProto((HttpRequest) msg);
+                    // 代理握手 (ssl)
+                    if (HttpMethod.CONNECT.name().equals(req.method().name())) {
+                        HttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, SUCCESS);
+                        ctx.writeAndFlush(response);
+                        ctx.pipeline().remove("httpCodec");
+                        ReferenceCountUtil.release(msg);
+                        return;
+                    }
                 }
-//                handleProxyData(ctx.channel(), req, true);
+
+
+                handleProxyData(ctx.channel(), req, true);
             } else if (msg instanceof HttpContent) {
                 ReferenceCountUtil.release(msg);
             } else {
                 ByteBuf byteBuf = (ByteBuf) msg;
-                if (byteBuf.getByte(0) == 22) {
-//                    SslContextBuilder.forServer()
+                // ssl握手
+                if (false && byteBuf.getByte(0) == 22) {
+                    SelfSignedCertificate ssc = CertUtil.getSsc();
+                    SslContext sslContext = SslContextBuilder
+                            .forServer(ssc.certificate(), ssc.privateKey())
+                            .build();
+                    ctx.pipeline().addFirst("httpCodec", new HttpServerCodec());
+                    ctx.pipeline().addFirst("sslHandle", sslContext.newHandler(ctx.alloc()));
+                    ctx.pipeline().fireChannelRead(msg);
+                    return;
                 }
-                System.out.println(byteBuf);
+
+                handleProxyData(ctx.channel(), msg, false);
             }
         }
 
@@ -105,7 +132,6 @@ public class ProxyServer {
         private void handleProxyData(Channel channel, Object msg, boolean isHttp) {
 
             if (msg instanceof HttpRequest) {
-                ProtoUtil.RequestProto requestProto = ProtoUtil.getRequestProto((HttpRequest) msg);
                 Bootstrap b = new Bootstrap();
                 b.group(new NioEventLoopGroup())
                         .channel(NioSocketChannel.class)

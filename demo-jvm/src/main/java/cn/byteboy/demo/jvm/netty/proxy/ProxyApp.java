@@ -1,6 +1,7 @@
 package cn.byteboy.demo.jvm.netty.proxy;
 
 import cn.hutool.core.date.DateUtil;
+import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
@@ -11,11 +12,19 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpClientCodec;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import lombok.SneakyThrows;
@@ -42,11 +51,12 @@ public class ProxyApp {
 
     // curl -k -x 127.0.0.1:9000 http://local:9001/
     // curl -k -x 127.0.0.1:9000 https://www.baidu.com/
+    // curl -k -x 127.0.0.1:9999 https://www.baidu.com/
     public static void main(String[] args) {
         new ProxyServer().start(9000);
         new ProxyApp().startBasicHttpService(9001);
 
-
+//        new ProxyApp().httpClient();
     }
 
     public void startBasicHttpService(int port) {
@@ -83,6 +93,32 @@ public class ProxyApp {
             log.info("basic http service start with {}", port);
             channel.closeFuture().sync();
         } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void httpClient() {
+        Bootstrap b = new Bootstrap();
+        b.group(new NioEventLoopGroup())
+                .channel(NioSocketChannel.class).handler(new ChannelInitializer<Channel>() {
+                    @Override
+                    protected void initChannel(Channel ch) throws Exception {
+                        ch.pipeline().addLast("httpCodec", new HttpClientCodec());
+                        ch.pipeline().addLast("aggregator", new HttpObjectAggregator(1024 * 100));
+                        ch.pipeline().addLast("clientHandler", new ChannelInboundHandlerAdapter() {
+                            @Override
+                            public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+                                System.out.println(msg);
+                            }
+                        });
+                    }
+                });
+        try {
+            FullHttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
+            ChannelFuture cf = b.connect("www.baidu.com", 443).sync();
+            cf.channel().writeAndFlush(request);
+            cf.channel().closeFuture().sync();
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
