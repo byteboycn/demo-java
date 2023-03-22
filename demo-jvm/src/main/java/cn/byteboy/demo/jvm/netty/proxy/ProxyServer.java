@@ -83,6 +83,8 @@ public class ProxyServer {
 
         private Stage stage = Stage.ONE;
 
+        private ChannelFuture scf;
+
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
             if (msg instanceof HttpRequest) {
@@ -129,9 +131,14 @@ public class ProxyServer {
             ctx.flush();
         }
 
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+            super.exceptionCaught(ctx, cause);
+        }
+
         private void handleProxyData(Channel channel, Object msg, boolean isHttp) {
 
-            if (msg instanceof HttpRequest) {
+            if (scf == null) {
                 Bootstrap b = new Bootstrap();
                 b.group(new NioEventLoopGroup())
                         .channel(NioSocketChannel.class)
@@ -139,12 +146,14 @@ public class ProxyServer {
                         .handler(new ChannelInitializer<Channel>() {
                             @Override
                             protected void initChannel(Channel ch) throws Exception {
-                                ch.pipeline()
-                                        .addLast("httpCodec", new HttpClientCodec())
-                                        .addLast("proxyClientHandle", new HttpProxyClientHandler(channel));
+                                if (isHttp) {
+                                    ch.pipeline().addLast("httpCodec", new HttpClientCodec());
+                                }
+                                ch.pipeline().addLast("proxyClientHandle", new HttpProxyClientHandler(channel));
                             }
                         });
                 ChannelFuture cf = b.connect(requestProto.getHost(), requestProto.getPort());
+                scf = cf;
                 cf.addListener((ChannelFutureListener) future -> {
                     if (future.isSuccess()) {
                         future.channel().writeAndFlush(msg);
@@ -157,11 +166,8 @@ public class ProxyServer {
                         System.out.println("操作完成");
                     }
                 });
-
-            } else if (msg instanceof HttpContent) {
-
             } else {
-
+                scf.channel().writeAndFlush(msg);
             }
 
         }
@@ -189,6 +195,11 @@ public class ProxyServer {
         public void channelInactive(ChannelHandlerContext ctx) throws Exception {
             System.out.println("channel channelInactive");
             super.channelInactive(ctx);
+        }
+
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+            super.exceptionCaught(ctx, cause);
         }
     }
 
