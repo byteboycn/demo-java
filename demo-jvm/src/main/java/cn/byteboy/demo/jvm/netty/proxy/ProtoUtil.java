@@ -3,6 +3,7 @@ package cn.byteboy.demo.jvm.netty.proxy;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpRequest;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -34,6 +35,7 @@ public class ProtoUtil {
 
 
     @Getter
+    @Setter
     public static class RequestProto {
 
         /**

@@ -30,11 +30,13 @@ public class CertUtil {
     }
 
     public static SelfSignedCertificate getSsc() {
-        if (ssc != null) {
-            try {
-                ssc = new SelfSignedCertificate();
-            } catch (CertificateException e) {
-                throw new RuntimeException(e);
+        synchronized (CertUtil.class) {
+            if (ssc == null) {
+                try {
+                    ssc = new SelfSignedCertificate();
+                } catch (CertificateException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
         return ssc;

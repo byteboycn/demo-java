@@ -83,7 +83,7 @@ public class ProxyServer {
 
         private Stage stage = Stage.ONE;
 
-        private ChannelFuture scf;
+        private ChannelFuture ccf;
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -111,7 +111,8 @@ public class ProxyServer {
             } else {
                 ByteBuf byteBuf = (ByteBuf) msg;
                 // ssl握手
-                if (false && byteBuf.getByte(0) == 22) {
+                if (ProxyConfig.isHandleSSL && byteBuf.getByte(0) == 22) {
+                    requestProto.setSsl(true);
                     SelfSignedCertificate ssc = CertUtil.getSsc();
                     SslContext sslContext = SslContextBuilder
                             .forServer(ssc.certificate(), ssc.privateKey())
@@ -138,28 +139,30 @@ public class ProxyServer {
 
         private void handleProxyData(Channel channel, Object msg, boolean isHttp) {
 
-            if (scf == null) {
+            if (ccf == null) {
                 Bootstrap b = new Bootstrap();
-                b.group(new NioEventLoopGroup())
+                b.group(ProxyConfig.eventLoopGroup)
                         .channel(NioSocketChannel.class)
                         .option(ChannelOption.SO_KEEPALIVE, false)
                         .handler(new ChannelInitializer<Channel>() {
                             @Override
                             protected void initChannel(Channel ch) throws Exception {
                                 if (isHttp) {
+                                    if (requestProto.isSsl()) {
+                                        ch.pipeline().addLast(ProxyConfig.cSslCtx.newHandler(ch.alloc(), requestProto.getHost(), requestProto.getPort()));
+                                    }
                                     ch.pipeline().addLast("httpCodec", new HttpClientCodec());
                                 }
                                 ch.pipeline().addLast("proxyClientHandle", new HttpProxyClientHandler(channel));
                             }
                         });
-                ChannelFuture cf = b.connect(requestProto.getHost(), requestProto.getPort());
-                scf = cf;
-                cf.addListener((ChannelFutureListener) future -> {
+                ccf = b.connect(requestProto.getHost(), requestProto.getPort());
+                ccf.addListener((ChannelFutureListener) future -> {
                     if (future.isSuccess()) {
                         future.channel().writeAndFlush(msg);
                     }
                 });
-                ChannelFuture closeFuture = cf.channel().closeFuture();
+                ChannelFuture closeFuture = ccf.channel().closeFuture();
                 closeFuture.addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {
@@ -167,7 +170,7 @@ public class ProxyServer {
                     }
                 });
             } else {
-                scf.channel().writeAndFlush(msg);
+                ccf.channel().writeAndFlush(msg);
             }
 
         }
@@ -175,14 +178,14 @@ public class ProxyServer {
 
     public static class HttpProxyClientHandler extends ChannelInboundHandlerAdapter {
 
-        private final Channel clientChannel;
+        private final Channel sChannel;
 
-        public HttpProxyClientHandler(Channel clientChannel) {
-            this.clientChannel = clientChannel;
+        public HttpProxyClientHandler(Channel sChannel) {
+            this.sChannel = sChannel;
         }
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-            clientChannel.writeAndFlush(msg);
+            sChannel.writeAndFlush(msg);
         }
 
         @Override

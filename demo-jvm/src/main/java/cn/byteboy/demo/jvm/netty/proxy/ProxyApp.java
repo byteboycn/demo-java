@@ -52,6 +52,9 @@ public class ProxyApp {
     // curl -k -x 127.0.0.1:9000 http://local:9001/
     // curl -k -x 127.0.0.1:9000 https://www.baidu.com/
     // curl -k -x 127.0.0.1:9999 https://www.baidu.com/
+
+//    networksetup -setwebproxy "Wi-Fi" 127.0.0.1 9000
+//    networksetup -setsecurewebproxy "Wi-Fi" 127.0.0.1 9000
     public static void main(String[] args) {
         new ProxyServer().start(9000);
         new ProxyApp().startBasicHttpService(9001);
