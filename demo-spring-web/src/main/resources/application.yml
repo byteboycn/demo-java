@@ -4,5 +4,16 @@ spring:
     username: root
     password: root
 
+  # rabbitmq
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: root
+    password: root
+    virtual-host: /
+    listener:
+      simple:
+        default-requeue-rejected: false
+        prefetch: 30
 server:
   port: 6080

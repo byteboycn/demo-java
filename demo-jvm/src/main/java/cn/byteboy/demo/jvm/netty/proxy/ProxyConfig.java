@@ -18,7 +18,7 @@ public class ProxyConfig {
 
     public final static NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(2);
 
-    public final static boolean isHandleSSL = true;
+    public final static boolean isHandleSSL = false;
 
     public final static SslContext cSslCtx;
 

@@ -20,7 +20,9 @@ import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequest;
 import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
@@ -34,6 +36,8 @@ import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.ReferenceCountUtil;
 import lombok.extern.slf4j.Slf4j;
+
+import java.nio.charset.Charset;
 
 
 /**
@@ -152,6 +156,7 @@ public class ProxyServer {
                                         ch.pipeline().addLast(ProxyConfig.cSslCtx.newHandler(ch.alloc(), requestProto.getHost(), requestProto.getPort()));
                                     }
                                     ch.pipeline().addLast("httpCodec", new HttpClientCodec());
+                                    ch.pipeline().addLast("aggregator", new HttpObjectAggregator( 1024 * 1024 * 8));
                                 }
                                 ch.pipeline().addLast("proxyClientHandle", new HttpProxyClientHandler(channel));
                             }
@@ -185,6 +190,14 @@ public class ProxyServer {
         }
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+            if (msg instanceof FullHttpResponse) {
+                FullHttpResponse fullHttpResponse = (FullHttpResponse) msg;
+                ByteBuf content = fullHttpResponse.content();
+            }
+            if (msg instanceof ByteBuf) {
+                ByteBuf bb = (ByteBuf) msg;
+                System.out.println(bb.readableBytes());
+            }
             sChannel.writeAndFlush(msg);
         }
 

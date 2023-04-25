@@ -26,8 +26,8 @@ public class Main {
     public static void main(String[] args) throws IOException, TimeoutException {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("localhost");
-        factory.setUsername("guest");
-        factory.setPassword("guest");
+        factory.setUsername("root");
+        factory.setPassword("root");
         factory.setVirtualHost("/");
         factory.setPort(5672);
         factory.setAutomaticRecoveryEnabled(true);
@@ -36,21 +36,22 @@ public class Main {
         Connection conn = factory.newConnection();
         final Channel channel = conn.createChannel();
 
+        prepare(channel);
 
         new Thread(() -> sender(channel)).start();
 
-//        consumeMessage(channel);
+        consumeMessage(channel);
 
 //        channel.close();
 //        conn.close();
 
-        long start = System.currentTimeMillis();
-        for (int i = 0; i < 100000; i++) {
-            sendMessage(channel, String.valueOf(i));
-        }
-        long end = System.currentTimeMillis();
-        System.out.println("cost time:" + (end - start));
-        System.out.println("done");
+//        long start = System.currentTimeMillis();
+//        for (int i = 0; i < 100000; i++) {
+//            sendMessage(channel, String.valueOf(i));
+//        }
+//        long end = System.currentTimeMillis();
+//        System.out.println("cost time:" + (end - start));
+//        System.out.println("done");
     }
 
     static void sender(Channel channel) {
